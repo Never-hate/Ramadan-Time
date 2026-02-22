@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>জামালপুর রমজান সময় সূচি</title>
     <style>
-        /* আপনার আগের সব CSS স্টাইল এখানে থাকবে */
+        /* CSS স্টাইল আপনার আগের মতোই রাখা হয়েছে */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f0f4f8; display: flex; justify-content: center; user-select: none; }
         .container { width: 100%; max-width: 450px; background: #f8fafc; min-height: 100vh; padding-bottom: 40px; }
@@ -44,7 +44,7 @@
                 <div class="logo" id="logo">J</div>
                 <div class="brand-text">
                     <h1 id="brand-name">লোডিং...</h1>
-                    <p>ি</p>
+                    <p></p>
                 </div>
             </div>
             <div class="location-badge" id="loc">অবস্থান</div>
@@ -77,7 +77,7 @@
         <div class="tracker">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
                 <h4>সালাত ট্র্যাকার</h4>
-                <div class="percent" id="pct">0%</div>
+                <div class="percent" id="pct">০%</div>
             </div>
             <div class="progress-bg"><div class="progress-fill" id="p-bar"></div></div>
             <div style="display: flex; gap: 8px;" id="t-btns"></div>
@@ -86,7 +86,20 @@
 
     <script src="data.js"></script>
     <script>
-        // সময়কে মিনিটে রূপান্তর করার ফাংশন
+        // LocalStorage ডাটা লোড করা
+        let prayerProgress = JSON.parse(localStorage.getItem('jamalpur_tracker')) || {
+            "ফজর": false, "যোহর": false, "আসর": false, "মাগরিব": false, "এশা": false
+        };
+
+        // অটো-রিসেট চেক (রাত ১২টা পার হলে)
+        const lastSavedDate = localStorage.getItem('last_track_date');
+        const todayStr = new Date().toDateString();
+        if (lastSavedDate !== todayStr) {
+            prayerProgress = { "ফজর": false, "যোহর": false, "আসর": false, "মাগরিব": false, "এশা": false };
+            localStorage.setItem('jamalpur_tracker', JSON.stringify(prayerProgress));
+            localStorage.setItem('last_track_date', todayStr);
+        }
+
         function timeToMinutes(timeStr) {
             let [time, modifier] = timeStr.split(' ');
             let [hours, minutes] = time.split(':').map(Number);
@@ -95,7 +108,6 @@
             return hours * 60 + minutes;
         }
 
-        // সংখ্যাকে বাংলায় রূপান্তর
         function toBengaliNum(num) {
             const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
             return num.toString().split('').map(d => bengaliDigits[d] || d).join('');
@@ -104,8 +116,6 @@
         function updateNextPrayer() {
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            
-            // সূর্যোদয় বাদ দিয়ে শুধু ৫ ওয়াক্ত নামাজ ফিল্টার করা
             const dailyPrayers = PRAYER_DATA.times.filter(p => p.name !== "সূর্যোদয়");
             
             let nextP = null;
@@ -114,10 +124,7 @@
             dailyPrayers.forEach(p => {
                 const pMin = timeToMinutes(p.time);
                 let diff = pMin - currentMinutes;
-                
-                // যদি সময় পার হয়ে যায় (পরের দিনের ফজর)
                 if (diff < 0) diff += 1440; 
-                
                 if (diff < minDiff) {
                     minDiff = diff;
                     nextP = p;
@@ -155,19 +162,30 @@
             `).join('');
 
             const farz = ["ফজর", "যোহর", "আসর", "মাগরিব", "এশা"];
-            document.getElementById('t-btns').innerHTML = farz.map(n => `<button class="t-btn" onclick="track(this)">${n}</button>`).join('');
+            document.getElementById('t-btns').innerHTML = farz.map(n => `
+                <button class="t-btn ${prayerProgress[n] ? 'active' : ''}" onclick="track(this, '${n}')">${n}</button>
+            `).join('');
             
+            updateTrackerUI();
             updateNextPrayer();
-            setInterval(updateNextPrayer, 60000); // প্রতি মিনিটে আপডেট হবে
+            setInterval(updateNextPrayer, 60000);
         }
 
-        function track(btn) {
+        function track(btn, name) {
             btn.classList.toggle('active');
-            const count = document.querySelectorAll('.t-btn.active').length;
+            prayerProgress[name] = btn.classList.contains('active');
+            localStorage.setItem('jamalpur_tracker', JSON.stringify(prayerProgress));
+            localStorage.setItem('last_track_date', todayStr);
+            updateTrackerUI();
+        }
+
+        function updateTrackerUI() {
+            const count = Object.values(prayerProgress).filter(v => v).length;
             const percentage = Math.round((count / 5) * 100);
             document.getElementById('pct').innerText = toBengaliNum(percentage) + '%';
             document.getElementById('p-bar').style.width = percentage + '%';
         }
+
         window.onload = render;
     </script>
 </body>
